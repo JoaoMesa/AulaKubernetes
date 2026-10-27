@@ -1,0 +1,104 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{fontspec}
+\usepackage[portuguese, english, bidi=basic, provide=*]{babel}
+\babelprovide[import, onchar=ids fonts]{portuguese}
+\babelfont{rm}{Noto Sans}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+% Definicao de cores para blocos de codigo e destaques
+\definecolor{codebg}{RGB}{245, 247, 250}
+\definecolor{codeframe}{RGB}{210, 215, 225}
+\definecolor{primary}{RGB}{15, 76, 129}
+
+% Configuracao do pacote listings para comandos e scripts
+\lstset{
+backgroundcolor=\color{codebg},
+frame=single,
+rulecolor=\color{codeframe},
+basicstyle=\ttfamily\small,
+breaklines=true,
+columns=fullflexible,
+keepspaces=true,
+showstringspaces=false,
+commentstyle=\color{gray}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{8pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{\color{primary} Guia do Professor: Preparando a ``AWS'' da Sala}} \\[8pt]
+\rule{\textwidth}{1pt}
+\end{center}
+
+\vspace{10pt}
+
+\section\*{1. Preparar o ambiente (antes dos alunos chegarem)}
+
+No seu terminal Ubuntu, instale o Flask e o Docker (se já não tiver):
+
+\begin{lstlisting}[language=bash]
+pip install flask
+\end{lstlisting}
+
+\section\*{2. Ajustar o código}
+
+Como você já criou o arquivo \texttt{material_de_apoio/codigo/criar_portal.py}, abra ele e certifique-se de que a última linha está assim:
+
+\begin{lstlisting}[language=python]
+if **name** == '**main**':
+app.run(host='0.0.0.0', port=1961)
+\end{lstlisting}
+
+\section\*{3. Liberar a porta no Firewall (se estiver ativo)}
+
+Se o seu Ubuntu tiver o firewall ativado (\texttt{ufw}), libere a porta para os alunos acessarem:
+
+\begin{lstlisting}[language=bash]
+sudo ufw allow 1961/tcp
+\end{lstlisting}
+
+\section\*{4. Criar a Rede Local (O ``Cabo da AWS'')}
+
+Crie o hotspot Wi-Fi para os alunos se conectarem:
+
+\begin{lstlisting}[language=bash]
+
+# Substitua wlp2s0 pelo nome da sua placa Wi-Fi
+
+sudo nmcli device wifi hotspot ifname wlp2s0 ssid "K8s-Cloud" password "SenhaSegura123"
+\end{lstlisting}
+
+Pegue o IP da sua máquina nessa rede:
+
+\begin{lstlisting}[language=bash]
+ip a show wlp2s0
+\end{lstlisting}
+
+\textit{(Suponha que o IP seja \texttt{10.42.0.1}. Escreva isso no quadro!)}
+
+\section\*{5. Subir o Portal (em background)}
+
+Para não travar o seu terminal (e você poder usar outros comandos durante a aula), rode o script em background usando o \texttt{nohup}:
+
+\begin{lstlisting}[language=bash]
+sudo nohup python3 material_de_apoio/codigo/criar_portal.py > portal.log 2>&1 &
+\end{lstlisting}
+
+Se quiser ver os logs de quem está se conectando, use: \texttt{tail -f portal.log}.
+
+\section\*{6. Iniciar o Docker}
+
+Certifique-se de que o serviço do Docker está rodando no seu PC:
+
+\begin{lstlisting}[language=bash]
+sudo systemctl start docker
+\end{lstlisting}
+
+\end{document}

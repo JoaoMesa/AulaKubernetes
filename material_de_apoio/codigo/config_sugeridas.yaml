@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-distribuida
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: distribuida
+  template:
+    metadata:
+      labels:
+        app: distribuida
+    spec:
+      # Regra que obriga os pods a ficarem em máquinas diferentes
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: [distribuida]
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web
+          image: nginxdemos/hello:plain-text
+          ports:
+            - containerPort: 80
+          # Limites baixos para não sobrecarregar o PC do professor
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-distribuida
+spec:
+  type: NodePort
+  selector:
+    app: distribuida
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
