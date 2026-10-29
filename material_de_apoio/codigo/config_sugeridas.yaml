@@ -3,8 +3,8 @@ kind: Deployment
 metadata:
   name: app-distribuida
 spec:
-  # PREENCHA AQUI: Quantas replicas queremos? Lembre-se, queremos que existam replicas na nuvem e local.
-  replicas: 
+  # PREENCHA AQUI: Quantas replicas queremos? (Lembre-se: queremos 1 local e 1 na nuvem)
+  replicas:
   selector:
     matchLabels:
       app: distribuida
@@ -25,7 +25,7 @@ spec:
           # local estiver bloqueada (cordon), o pod ficará "Pending" em vez de
           # desrespeitar a regra.
           requiredDuringSchedulingIgnoredDuringExecution:
-- labelSelector:
+            - labelSelector:
                 matchExpressions:
                   # -----------------------------------------------------------
                   # PREENCHA AQUI: Qual é a chave (key) da label do nosso Pod?
@@ -38,18 +38,15 @@ spec:
                   #
                   # O resultado será algo como {"app":"distribuida"}.
                   # A "key" é o que está antes dos dois pontos ("app").
-- key: [PREENCHA COM A CHAVE DA LABEL]
-
+                  - key: [PREENCHA COM A CHAVE DA LABEL]
                     operator: In
-
                     # -----------------------------------------------------------
                     # PREENCHA AQUI: Qual é o valor (value) dessa label?
                     # -----------------------------------------------------------
                     # COMO DESCOBRIR:
                     # No mesmo resultado do comando anterior, o "value" é
                     # o que está depois dos dois pontos ("distribuida").
-                    values: [[PREENCHA COM O VALOR DA LABEL]]
-
+                    values: ["[PREENCHA COM O VALOR DA LABEL]"]
               # ---------------------------------------------------------------
               # PREENCHA AQUI: Qual é a chave que representa uma "máquina física"?
               # ---------------------------------------------------------------
@@ -64,13 +61,13 @@ spec:
               #   kubernetes.io/hostname
               topologyKey: [PREENCHA COM A CHAVE DE TOPOLOGIA]
       containers:
-- name: web
+        - name: web
           # PREENCHA AQUI: Use a imagem que mostra o nome do Pod.
-          # DICA: Pesquise por "nginxdemos/hello" no Docker Hub (hub.docker.com). 
+          # DICA: Pesquise por "nginxdemos/hello" no Docker Hub (hub.docker.com).
           # A versão que queremos é a "plain-text", que retorna texto simples.
-          image: 
+          image:
           ports:
-- containerPort: 80
+            - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
@@ -81,7 +78,7 @@ spec:
   selector:
     app: distribuida
   ports:
-- port: 80
+    - port: 80
       targetPort: 80
       # PREENCHA AQUI: Fixe a porta externa em 30080 para todos acessarem igual
-      nodePort: 
+      nodePort:
