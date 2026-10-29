@@ -53,3 +53,6 @@ def registrar():
         return f"<h3>✅ Sucesso! O nó na nuvem foi criado para {nome}.</h3>"
     except subprocess.CalledProcessError as e:
         return f"<h3>❌ Erro ao conectar.</h3><pre>{e.stderr.decode()}</pre>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=1961, debug=False)

@@ -1,0 +1,275 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{fontspec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+% Definicao de cores do documento
+\definecolor{codebg}{RGB}{245, 247, 250}
+\definecolor{codeframe}{RGB}{210, 215, 225}
+\definecolor{primary}{RGB}{15, 76, 129}
+\definecolor{accent}{RGB}{40, 116, 166}
+\definecolor{warnbg}{RGB}{253, 237, 237}
+\definecolor{warnframe}{RGB}{220, 53, 69}
+\definecolor{infobg}{RGB}{240, 248, 255}
+\definecolor{infoframe}{RGB}{40, 116, 166}
+
+% Linguagem YAML personalizada para listings
+\lstdefinelanguage{yaml}{
+  keywords={true, false, null, y, n},
+  keywordstyle=\color{primary}\bfseries,
+  basicstyle=\ttfamily\small,
+  sensitive=false,
+  comment=[l]{\#},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{accent},
+  morestring=[b]',
+  morestring=[b]"
+}
+
+% Configuracao basica do listings
+\lstset{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{gray}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{7pt}
+
+\begin{document}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Laboratório de Kubernetes}} \\[4pt]
+    {\large \textbf{\color{accent} Da Máquina Local à Nuvem Híbrida (Windows + kind)}} \\[8pt]
+    \rule{\textwidth}{1pt}
+\end{center}
+
+\textbf{Objetivo:} Sair do zero, criar um cluster Kubernetes local multi-nó, testar a auto-recuperação e, por fim, simular uma arquitetura de nuvem distribuída.
+
+\begin{tcolorbox}[colback=infobg, colframe=infoframe, arc=3pt, boxrule=0.8pt]
+\textbf{INSTRUÇÕES DE ENTREGA DA ATIVIDADE:}
+\begin{enumerate}[leftmargin=*, topsep=3pt, itemsep=2pt]
+    \item Execute todos os comandos detalhados neste roteiro prático.
+    \item Capture telas (\textit{prints}) que comprovem a execução e os resultados dos comandos no seu terminal.
+    \item Elabore e entregue um \textbf{relatório individual} explicando o que foi feito em cada etapa, ilustrado com os seus respectivos \textit{prints}.
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnbg, colframe=warnframe, arc=3pt, boxrule=0.8pt]
+\textbf{PRÉ-REQUISITOS (WINDOWS):}
+\begin{itemize}[leftmargin=*, topsep=3pt, itemsep=2pt]
+    \item Docker Desktop instalado e rodando (com WSL2 ativado).
+    \item Terminal PowerShell aberto como Administrador.
+    \item Instale o \texttt{kubectl} e o \texttt{kind} via Chocolatey:
+    \begin{lstlisting}[language=bash]
+choco install kubernetes-cli kind -y
+    \end{lstlisting}
+\end{itemize}
+\end{tcolorbox}
+
+\section*{Fase 1: O Básico (Comandos e Deploy)}
+
+Vamos criar o nosso "datacenter" local com 1 nó de controle e 2 servidores de trabalho usando o \texttt{kind}.
+
+\subsection*{1. Criar o cluster multi-nó}
+Crie um arquivo chamado \texttt{kind-config.yaml} na sua pasta de trabalho com o seguinte conteúdo (ele mapeia a porta 30080 para que você consiga acessar no navegador):
+
+\begin{lstlisting}[language=yaml]
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30080
+    hostPort: 30080
+    protocol: TCP
+- role: worker
+- role: worker
+\end{lstlisting}
+
+No PowerShell, crie o cluster:
+\begin{lstlisting}[language=bash]
+kind create cluster --name lab-k8s --config kind-config.yaml
+\end{lstlisting}
+
+Verifique se os 3 nós estão prontos:
+\begin{lstlisting}[language=bash]
+kubectl get nodes
+\end{lstlisting}
+
+\subsection*{2. Criar um Deployment (Modo Declarativo)}
+Vamos criar um gerenciador (\texttt{Deployment}) que garante 3 réplicas do Nginx:
+
+\begin{lstlisting}[language=bash]
+kubectl create deployment meu-app --image=nginx:latest --replicas=3
+\end{lstlisting}
+
+\subsection*{3. Expor e Testar}
+Exponha a aplicação na porta mapeada:
+
+\begin{lstlisting}[language=bash]
+kubectl expose deployment meu-app --type=NodePort --port=80 --target-port=80 --node-port=30080
+\end{lstlisting}
+
+\textit{Acesse no navegador: \texttt{http://localhost:30080}. Você verá a página de boas-vindas do Nginx.}
+
+\section*{Fase 2: Testando Conceito Local (Auto-cura)}
+
+Vamos provar que o Deployment mantém o estado desejado.
+
+\textbf{1. Simule uma falha:} \\
+Pegue o nome de um dos pods listados abaixo (será algo como \texttt{meu-app-xxxxxxxx-xxxxx}):
+
+\begin{lstlisting}[language=bash]
+kubectl get pods
+\end{lstlisting}
+
+Delete o pod (substitua pelo nome que você copiou):
+
+\begin{lstlisting}[language=bash]
+kubectl delete pod meu-app-<hash>
+\end{lstlisting}
+
+\textbf{2. Observando a mágica:} \\
+Rode o comando com \texttt{-w} (\textit{watch}) para ver em tempo real:
+
+\begin{lstlisting}[language=bash]
+kubectl get pods -w
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=infobg, colframe=infoframe, arc=3pt, boxrule=0.8pt]
+\textbf{OBSERVE:} O pod que você deletou entrou em \texttt{Terminating} e um \textbf{novo pod foi criado automaticamente} em segundos. O Kubernetes percebeu que você queria 3 e recriou o que faltava. \textit{(Aperte \texttt{Ctrl+C} para sair do watch).}
+\end{tcolorbox}
+
+\subsection*{3. LIMPEZA (A Transição)}
+Agora que já entendemos o básico, vamos apagar o \texttt{meu-app} para que a nossa próxima aplicação seja a única a rodar no cluster.
+
+\begin{lstlisting}[language=bash]
+kubectl delete deployment meu-app
+kubectl delete service meu-app
+\end{lstlisting}
+
+\section*{Fase 3: A Nuvem Híbrida (Distribuição entre Servidores)}
+
+Agora, vamos simular um ambiente de nuvem distribuída. O seu cluster possui 3 máquinas virtuais (nós). Vamos forçar o Kubernetes a colocar uma réplica em cada nó diferente para garantir resiliência.
+
+\subsection*{1. Deploy Distribuído (O YAML Protegido)}
+Crie um arquivo chamado \texttt{app-nuvem.yaml} com o código abaixo. Ele já está 100\% configurado.
+
+\begin{lstlisting}[language=yaml]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-distribuida
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: distribuida
+  template:
+    metadata:
+      labels:
+        app: distribuida
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - distribuida
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web
+          image: nginxdemos/hello:plain-text
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-distribuida
+spec:
+  type: NodePort
+  selector:
+    app: distribuida
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+\end{lstlisting}
+
+Aplique o arquivo e veja onde os pods caíram:
+
+\begin{lstlisting}[language=bash]
+kubectl apply -f app-nuvem.yaml
+kubectl get pods -o wide
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=infobg, colframe=infoframe, arc=3pt, boxrule=0.8pt]
+\textbf{OBSERVE:} Na coluna \texttt{NODE}, um pod deve estar no \texttt{lab-k8s-worker} e o outro no \texttt{lab-k8s-worker2}. O Kubernetes respeitou a regra de \textit{Anti-affinity} e não os colocou na mesma máquina. \textbf{Anote o nome exato do pod e do nó onde ele está rodando!}
+\end{tcolorbox}
+
+\subsection*{2. O Teste de Fogo (Derrubando um Servidor)}
+Vamos provar que se um dos servidores cair, a aplicação sobrevive.
+
+\textbf{1. Deixe o terminal observando os pods:}
+\begin{lstlisting}[language=bash]
+kubectl get pods -o wide -w
+\end{lstlisting}
+
+\textbf{2. Em outro terminal, isole um dos nós:} \textit{(Use o nome do worker onde um dos pods está)}
+\begin{lstlisting}[language=bash]
+kubectl cordon lab-k8s-worker
+\end{lstlisting}
+
+\textbf{3. Simule a queda do pod daquele nó:}
+\begin{lstlisting}[language=bash]
+kubectl delete pod <NOME_DO_POD_LOCAL>
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=infobg, colframe=infoframe, arc=3pt, boxrule=0.8pt]
+\textbf{O QUE ACONTECEU?} Olhe para o terminal do \textit{watch}. O pod que você deletou vai tentar renascer, mas vai ficar \textbf{\texttt{Pending}} (Pendente). O Kubernetes está protegendo a sua regra de \textit{Anti-affinity}: ele prefere deixar o pod pendente a colocar dois pods na mesma máquina sobrevivente.
+\end{tcolorbox}
+
+\subsection*{3. A Prova Final (O Terminal não mente)}
+Deixe o \texttt{curl} rodando em loop para provar que o site não caiu:
+
+\begin{lstlisting}[language=bash]
+while ($true) { curl.exe -s http://localhost:30080 | Select-String "Server name"; Start-Sleep -Seconds 1 }
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=infobg, colframe=infoframe, arc=3pt, boxrule=0.8pt]
+\textbf{OBSERVE:} O terminal vai mostrar o nome do pod sobrevivente respondendo. O site \textbf{continua no ar}, servido 100\% pelo outro servidor! \textit{(Aperte \texttt{Ctrl+C} para parar).}
+\end{tcolorbox}
+
+\subsection*{4. Restaurando o Ambiente}
+Para voltar tudo ao normal e o pod \texttt{Pending} voltar para o nó recuperado:
+
+\begin{lstlisting}[language=bash]
+kubectl uncordon lab-k8s-worker
+\end{lstlisting}
+
+\section*{Limpeza Final}
+
+Para não sobrecarregar o seu computador, apague o cluster local:
+
+\begin{lstlisting}[language=bash]
+kubectl delete deployment app-distribuida
+kubectl delete service app-distribuida
+kind delete cluster --name lab-k8s
+\end{lstlisting}
+
+\end{document}
