@@ -1,178 +1,232 @@
-🚀 Laboratório de Kubernetes: Da Máquina Local à Nuvem Híbrida
+---
 
-A Aplicação: Vamos usar o Nginx, um servidor web leve e clássico. Ele será nossa cobaia para provar como o Kubernetes gerencia e move os contêineres.
-🛠️ Fase 1: O Básico (Primeiros Passos)
+# 🚀 Laboratório de Kubernetes: Da Máquina Local à Nuvem Híbrida
 
-O objetivo aqui é instalar o Kubernetes, criar um Pod de forma imperativa e depois criar um Deployment (a forma correta).
+**Objetivo:** Sair do zero, criar um cluster Kubernetes local, testar a auto-recuperação e, por fim, simular uma arquitetura de nuvem híbrida.
 
-1. Instalar o Kubernetes (k3s)
+> ⚠️ **ATENÇÃO:** Em todos os comandos deste guia, usaremos `sudo k3s kubectl`.
 
-No seu terminal, execute o comando abaixo (ele baixa e instala o k3s, uma versão leve do Kubernetes):
-bash
+---
 
+## 🛠️ Fase 1: O Básico (Comandos e Deploy)
+
+Vamos instalar o cluster e criar a nossa primeira aplicação.
+
+### 1. Instalar o Kubernetes (k3s)
+
+```bash
 curl -sfL https://get.k3s.io | sh -
+```
 
 Verifique se o nó (sua máquina) está pronto:
-bash
 
-sudo kubectl get nodes
+```bash
+sudo k3s kubectl get nodes
+```
 
-(Você deve ver o seu computador com o status Ready). 2. Criar um Pod solto (Modo Imperativo)
+### 2. Criar um Deployment (Modo Declarativo)
 
-Vamos rodar um contêiner Nginx solto. Atenção: Pods soltos não têm auto-cura. Se ele morrer, o Kubernetes não faz nada.
-bash
+Vamos criar um gerenciador (Deployment) que garante 3 réplicas do Nginx.
 
-sudo kubectl run meu-primeiro-pod --image=nginx:latest
-sudo kubectl get pods
+```bash
+sudo k3s kubectl create deployment meu-app --image=nginx:latest --replicas=3
+```
 
-3. Criar um Deployment (Modo Declarativo)
+### 3. Expor e Testar
 
-Agora, vamos criar um gerenciador (Deployment) que garante que 3 réplicas do Nginx estejam sempre rodando.
-bash
+Exponha a aplicação e veja o resultado:
 
-sudo kubectl create deployment meu-app --image=nginx:latest --replicas=3
-sudo kubectl get pods
+```bash
+sudo k3s kubectl expose deployment meu-app --type=NodePort --port=80
+sudo k3s kubectl get services
+```
 
-(Você verá 3 pods com nomes aleatórios no final). 4. Expor a Aplicação para o Mundo (Service)
+_Anote a porta que apareceu no `PORT(S)` (ex: `80:31218/TCP`) e acesse no navegador: `http://localhost:31218`._
 
-Vamos criar um Service do tipo NodePort para acessar a aplicação pelo navegador:
-bash
+---
 
-sudo kubectl expose deployment meu-app --type=NodePort --port=80
+## 🔬 Fase 2: Testando Conceito Local (Auto-cura)
 
-Descubra qual porta o Kubernetes abriu:
-bash
+Vamos provar que o Deployment mantém o estado desejado.
 
-sudo kubectl get services
+**1. Simule uma falha:**
+Pegue o nome de um dos pods listados abaixo (será algo como `meu-app-xxxxxxxx-xxxxx`):
 
-Procure a linha do meu-app na coluna PORT(S), algo como 80:31234/TCP.
-Abra o navegador e acesse: http://localhost:31234 (substitua 31234 pela porta que apareceu). Você verá a página de boas-vindas do Nginx!
-🔬 Fase 2: Testando Conceito Local (Auto-cura)
+```bash
+sudo k3s kubectl get pods
+```
 
-Agora vamos provar que o Deployment mantém o estado desejado.
+Delete o pod (substitua pelo nome que você copiou):
 
-1. Simulando uma falha
+```bash
+sudo k3s kubectl delete pod meu-app-<hash>
+```
 
-O seu Deployment quer 3 réplicas. Vamos matar uma delas manualmente:
-bash
+**2. Observando a mágica:**
+Rode o comando com `-w` (watch) para ver em tempo real:
 
-# Copie o nome de um dos pods listados
+```bash
+sudo k3s kubectl get pods -w
+```
 
-sudo kubectl get pods
+> 💡 **OBSERVE:** O pod que você deletou entrou em `Terminating` e um **novo pod foi criado automaticamente** em segundos. O Kubernetes percebeu que você queria 3 e recriou o que faltava. (Aperte `Ctrl+C` para sair do watch).
 
-# Delete o pod (substitua pelo nome que você copiou)
+### 🧹 3. LIMPEZA (A Transição)
 
-sudo kubectl delete pod meu-app-<hash-aleatorio>
+Agora que já entendemos o básico, vamos apagar o `meu-app` para que a nossa próxima aplicação (a distribuída na nuvem) seja a única a rodar o Nginx no cluster. Isso evita confusão na hora de olhar os pods.
 
-2. Observando a mágica
+```bash
+sudo k3s kubectl delete deployment meu-app
+sudo k3s kubectl delete service meu-app
+```
 
-Rode o comando abaixo para ver os pods em tempo real:
-bash
+_(Verifique com `sudo k3s kubectl get pods` se não sobrou nada)._
 
-sudo kubectl get pods -w
+---
 
-(Pressione Ctrl+C para sair).
-O que aconteceu? O pod que você deletou entrou em Terminating e um novo pod foi criado automaticamente em segundos. O Kubernetes percebeu que você queria 3 e recriou o que faltava.
-☁️ Fase 3: A Nuvem Híbrida (Simulando a AWS)
+## ☁️ Fase 3: A Nuvem Híbrida (Simulando a AWS)
 
-Agora, sua aplicação vai rodar não só na sua máquina, mas também no "datacenter do professor". A ideia é garantir que, se a sua máquina cair, a aplicação continue no ar.
+Agora, vamos colocar uma réplica da sua aplicação no "datacenter do professor".
 
-1. Pegar seus dados de conexão
+### 1. Pegar seus dados de conexão
 
-Para que o professor possa criar um "nó na nuvem" para você, passe os seguintes comandos e anote os resultados:
-bash
+Pegue o IP da sua máquina e o Token do seu cluster:
 
-# 1. O IP da sua máquina na rede local:
-
+```bash
 hostname -I
-
-# 2. O Token de segurança do seu cluster (copie a string gigante):
-
 sudo cat /var/lib/rancher/k3s/server/node-token
+```
 
-2. Contratar a Nuvem
+### 2. Contratar a Nuvem
 
-Abra o navegador e acesse o portal do professor: http://<IP_DO_PROFESSOR>:1961.
-Preencha o seu nome, o IP da sua máquina e o Token. Clique em Conectar. 3. Verificar a conexão
+Abra o navegador e acesse o portal do professor: `http://<IP_DO_PROFESSOR>:1961`.
+Preencha o seu nome, o IP da sua máquina e o Token. Clique em **Conectar**.
 
-No seu terminal, rode:
-bash
+### 3. Verificar a conexão
 
-sudo kubectl get nodes
+Rode:
 
-(Agora você verá dois nós: o seu computador e o nó worker-seu-nome que o professor criou para você). 4. Deploy Distribuído (O Pulmão na Nuvem)
+```bash
+sudo k3s kubectl get nodes
+```
 
-Vamos criar uma nova aplicação usando a imagem nginxdemos/hello. Ela é especial porque mostra o nome do Pod que respondeu à requisição. Além disso, usaremos uma regra de Anti-Affinity: "Nunca coloque duas réplicas na mesma máquina".
+> ⚠️ **ATENÇÃO:** Agora você verá **dois** nós: o seu computador (Control Plane) e um nó com um nome esquisito tipo `2945794d5ccd` ou `worker-seu-nome`. **Anote o nome do nó local e o nome do nó da nuvem**, você precisará deles!
 
-Crie um arquivo chamado app-nuvem.yaml:
-yaml
+### 4. Deploy Distribuído (O Esqueleto YAML)
 
+Vamos criar uma aplicação com a imagem `nginxdemos/hello`, que mostra o nome do pod que respondeu à requisição.
+
+Crie um arquivo chamado `app-nuvem.yaml` e **preencha os campos em branco**:
+
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-name: app-distribuida
+  name: app-distribuida
 spec:
-replicas: 2
-selector:
-matchLabels:
-app: distribuida
-template:
+  # PREENCHA AQUI: Quantas réplicas queremos? (Coloque 2)
+  replicas:
+  selector:
+    matchLabels:
+      app: distribuida
+  template:
+    metadata:
+      labels:
+        app: distribuida
+    spec:
+      # PREENCHA AQUI: Adicione a regra de podAntiAffinity para garantir
+      # que os pods NUNCA fiquem na mesma máquina.
+      # DICA: Olhe o Slide 5 da sua apresentação teórica!
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: [distribuida]
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web
+          # PREENCHA AQUI: Mude para a imagem que mostra o nome do pod
+          image:
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
 metadata:
-labels:
-app: distribuida
+  name: app-distribuida
 spec:
-affinity:
-podAntiAffinity:
-requiredDuringSchedulingIgnoredDuringExecution: - labelSelector:
-matchExpressions: - key: app
-operator: In
-values: [distribuida]
-topologyKey: kubernetes.io/hostname
-containers: - name: web
-image: nginxdemos/hello:plain-text
-ports: - containerPort: 80
+  type: NodePort
+  selector:
+    app: distribuida
+  ports:
+    - port: 80
+      targetPort: 80
+      # PREENCHA AQUI: Fixe a porta externa em 30080 para todos acessarem igual
+      nodePort:
+```
 
 Aplique o arquivo e veja onde os pods caíram:
-bash
 
-sudo kubectl apply -f app-nuvem.yaml
-sudo kubectl get pods -o wide
+```bash
+sudo k3s kubectl apply -f app-nuvem.yaml
+sudo k3s kubectl get pods -o wide
+```
 
-(Você verá um pod rodando no nó local e outro rodando no nó worker-seu-nome - a nuvem). 5. O Teste de Fogo (Derrubando o Local)
+> 💡 **OBSERVE:** Na coluna `NODE`, um pod deve estar no **seu nó local** e o outro no **nó da nuvem**. Anote o nome exato do pod que caiu no seu nó local!
+
+### 5. O Teste de Fogo (Derrubando o Local)
 
 Vamos provar que a nuvem segura a bronca. Vamos simular que o seu datacenter local caiu.
-bash
 
-# 1. Descubra o nome do SEU nó local
+**1. Deixe o terminal observando os pods:**
 
-sudo kubectl get nodes
+```bash
+sudo k3s kubectl get pods -o wide -w
+```
 
-# 2. Isole o seu nó (impeça novos pods de virem para cá)
+**2. Em outro terminal, isole o seu nó local:** (Use o nome do nó local que você anotou no passo 3)
 
-sudo kubectl cordon <NOME_DO_SEU_NO>
+```bash
+sudo k3s kubectl cordon <NOME_DO_SEU_NO_LOCAL>
+```
 
-# 3. Expulse os pods do seu nó (eles vão para a nuvem)
+**3. Simule a queda do pod local:** (Use o nome do pod local que você anotou no passo 4)
 
-sudo kubectl drain <NOME_DO_SEU_NO> --ignore-daemonsets --delete-emptydir-data
+```bash
+sudo k3s kubectl delete pod <NOME_DO_POD_LOCAL>
+```
 
-6. A Prova Final
+> 💡 **O QUE ACONTECEU?** Olhe para o terminal do `watch`. O pod que você deletou vai tentar renascer, mas vai ficar **`Pending`** (Pendente). O Kubernetes está protegendo a sua regra de `Anti-affinity`: ele prefere deixar o pod pendente a colocar dois pods na nuvem.
 
-Rode novamente:
-bash
+### 6. A Prova Final (O Terminal não mente)
 
-sudo kubectl get pods -o wide
+Deixe o `curl` rodando em loop para provar que o site não caiu:
 
-O pod que estava no seu nó foi morto e reagendado para o nó da nuvem (PC do professor). Você acaba de simular uma migração de nuvem!
-🧹 Limpeza (Fim da Aula)
+```bash
+curl -s http://localhost:<SUA_PORTA>
+```
+
+> 💡 **OBSERVE:** O terminal vai mostrar o nome do pod da nuvem respondendo. O site **continua no ar**, servido 100% pelo datacenter do professor! (Aperte `Ctrl+C` para parar).
+
+### 7. Restaurando o Ambiente
+
+Para voltar tudo ao normal e o pod `Pending` voltar para a sua máquina:
+
+```bash
+sudo k3s kubectl uncordon <NOME_DO_SEU_NO_LOCAL>
+```
+
+---
+
+## 🧹 Limpeza Final
 
 Para não sobrecarregar o PC do professor, apague a aplicação da nuvem e destrua o seu cluster local:
-bash
 
-# Apaga o deployment e o service da nuvem
-
-sudo kubectl delete deployment app-distribuida
-sudo kubectl delete deployment meu-app
-
-# Desinstala o k3s da sua máquina
-
+```bash
+sudo k3s kubectl delete deployment app-distribuida
+sudo k3s kubectl delete service app-distribuida
 /usr/local/bin/k3s-uninstall.sh
+```

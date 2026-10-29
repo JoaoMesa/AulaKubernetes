@@ -37,24 +37,19 @@ def registrar():
     token = request.form['token']
     container_name = f"worker-{nome}"
     
-    # Remove container antigo se existir
+    # 1. REMOVE O CONTAINER ANTIGO (se existir)
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
     
-    # Comando para criar o worker na sua máquina
+    # 2. CRIA O NOVO CONTAINER
     comando = [
         "docker", "run", "-d", "--name", container_name, "--privileged",
         "-e", f"K3S_URL=https://{ip}:6443",
         "-e", f"K3S_TOKEN={token}",
-        "rancher/k3s:v1.28.2-k3s1", "agent"
+        "rancher/k3s:v1.36.5-k3s1", "agent" # Mudei para a versão 1.36.5
     ]
     
     try:
         subprocess.run(comando, check=True, capture_output=True)
-        return f"<h3>✅ Sucesso! O nó na nuvem foi criado para {nome}.</h3><p>Volte para o terminal e rode 'kubectl get nodes'.</p>"
+        return f"<h3>✅ Sucesso! O nó na nuvem foi criado para {nome}.</h3>"
     except subprocess.CalledProcessError as e:
-        return f"<h3>❌ Erro ao conectar. Verifique o IP e o Token.</h3><pre>{e.stderr.decode()}</pre>"
-    except Exception as e:
-        return f"<h3>❌ Erro inesperado: {str(e)}</h3>"
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=1961)
+        return f"<h3>❌ Erro ao conectar.</h3><pre>{e.stderr.decode()}</pre>"
