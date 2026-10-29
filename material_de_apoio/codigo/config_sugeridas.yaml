@@ -3,7 +3,8 @@ kind: Deployment
 metadata:
   name: app-distribuida
 spec:
-  replicas: 2
+  # PREENCHA AQUI: Quantas replicas queremos? Lembre-se, queremos que existam replicas na nuvem e local.
+  replicas: 
   selector:
     matchLabels:
       app: distribuida
@@ -12,29 +13,64 @@ spec:
       labels:
         app: distribuida
     spec:
-      # Regra que obriga os pods a ficarem em máquinas diferentes
+      # =========================================================================
+      # EXERCÍCIO DE ANTI-AFFINITY (O Pulmão na Nuvem)
+      # =========================================================================
+      # Objetivo: Impedir que o Kubernetes coloque dois Pods desta aplicação
+      # na mesma máquina física.
+      # =========================================================================
       affinity:
         podAntiAffinity:
+          # Usamos "required" (Obrigatório) para forçar a separação. Se a máquina
+          # local estiver bloqueada (cordon), o pod ficará "Pending" em vez de
+          # desrespeitar a regra.
           requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
+- labelSelector:
                 matchExpressions:
-                  - key: app
+                  # -----------------------------------------------------------
+                  # PREENCHA AQUI: Qual é a chave (key) da label do nosso Pod?
+                  # -----------------------------------------------------------
+                  # COMO DESCOBRIR:
+                  # Rode o comando abaixo no terminal para ver o manifesto
+                  # do Deployment que você acabou de criar:
+                  #
+                  #   sudo k3s kubectl get deployment app-distribuida -o jsonpath='{.spec.selector.matchLabels}'
+                  #
+                  # O resultado será algo como {"app":"distribuida"}.
+                  # A "key" é o que está antes dos dois pontos ("app").
+- key: [PREENCHA COM A CHAVE DA LABEL]
+
                     operator: In
-                    values: [distribuida]
-              topologyKey: kubernetes.io/hostname
+
+                    # -----------------------------------------------------------
+                    # PREENCHA AQUI: Qual é o valor (value) dessa label?
+                    # -----------------------------------------------------------
+                    # COMO DESCOBRIR:
+                    # No mesmo resultado do comando anterior, o "value" é
+                    # o que está depois dos dois pontos ("distribuida").
+                    values: [[PREENCHA COM O VALOR DA LABEL]]
+
+              # ---------------------------------------------------------------
+              # PREENCHA AQUI: Qual é a chave que representa uma "máquina física"?
+              # ---------------------------------------------------------------
+              # COMO DESCOBRIR:
+              # 1. Pesquise na documentação do Kubernetes sobre "topologyKey".
+              # 2. Ou rode este comando para ler a explicação do próprio K8s:
+              #
+              #   sudo k3s kubectl explain pod.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution.topologyKey
+              #
+              # O texto dirá que esta chave define o "domínio de topologia".
+              # A label padrão para identificar uma máquina física (Nó) é:
+              #   kubernetes.io/hostname
+              topologyKey: [PREENCHA COM A CHAVE DE TOPOLOGIA]
       containers:
-        - name: web
-          image: nginxdemos/hello:plain-text
+- name: web
+          # PREENCHA AQUI: Use a imagem que mostra o nome do Pod.
+          # DICA: Pesquise por "nginxdemos/hello" no Docker Hub (hub.docker.com). 
+          # A versão que queremos é a "plain-text", que retorna texto simples.
+          image: 
           ports:
-            - containerPort: 80
-          # Limites baixos para não sobrecarregar o PC do professor
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "32Mi"
-            limits:
-              cpu: "100m"
-              memory: "64Mi"
+- containerPort: 80
 ---
 apiVersion: v1
 kind: Service
@@ -45,6 +81,7 @@ spec:
   selector:
     app: distribuida
   ports:
-    - port: 80
+- port: 80
       targetPort: 80
-      nodePort: 30080
+      # PREENCHA AQUI: Fixe a porta externa em 30080 para todos acessarem igual
+      nodePort: 
