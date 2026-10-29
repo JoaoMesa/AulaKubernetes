@@ -3,7 +3,10 @@ kind: Deployment
 metadata:
   name: app-distribuida
 spec:
-  # PREENCHA AQUI: Quantas replicas queremos? (Lembre-se: queremos 1 local e 1 na nuvem)
+  # PREENCHA AQUI: Quantas réplicas queremos?
+  # SUGESTÃO: Você quer que a aplicação sobreviva à queda de UMA máquina inteira.
+  # Se você tem 2 máquinas disponíveis, quantas cópias você precisa para que,
+  # se uma cair, a outra continue no ar? (Escolha um número maior que 1 e menor que 4).
   replicas:
   selector:
     matchLabels:
@@ -11,60 +14,47 @@ spec:
   template:
     metadata:
       labels:
+        # ATENÇÃO: A sua etiqueta (label) é "app: distribuida".
+        # Guarde bem essas duas palavras, você vai usá-las no Anti-affinity!
         app: distribuida
     spec:
-      # =========================================================================
-      # EXERCÍCIO DE ANTI-AFFINITY (O Pulmão na Nuvem)
-      # =========================================================================
-      # Objetivo: Impedir que o Kubernetes coloque dois Pods desta aplicação
-      # na mesma máquina física.
-      # =========================================================================
       affinity:
         podAntiAffinity:
-          # Usamos "required" (Obrigatório) para forçar a separação. Se a máquina
-          # local estiver bloqueada (cordon), o pod ficará "Pending" em vez de
-          # desrespeitar a regra.
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchExpressions:
                   # -----------------------------------------------------------
-                  # PREENCHA AQUI: Qual é a chave (key) da label do nosso Pod?
+                  # PREENCHA AQUI: Qual é a CHAVE da etiqueta?
                   # -----------------------------------------------------------
-                  # COMO DESCOBRIR:
-                  # Rode o comando abaixo no terminal para ver o manifesto
-                  # do Deployment que você acabou de criar:
-                  #
-                  #   sudo k3s kubectl get deployment app-distribuida -o jsonpath='{.spec.selector.matchLabels}'
-                  #
-                  # O resultado será algo como {"app":"distribuida"}.
-                  # A "key" é o que está antes dos dois pontos ("app").
-                  - key: [PREENCHA COM A CHAVE DA LABEL]
+                  # DICA: Olhe para as linhas 14 e 17. A chave é a palavra
+                  # que vem antes dos dois pontos. Se você mudasse a etiqueta no topo
+                  # para "time: azul", a chave aqui teria que ser "time".
+                  - key: [PREENCHA A CHAVE AQUI]
+
                     operator: In
+
                     # -----------------------------------------------------------
-                    # PREENCHA AQUI: Qual é o valor (value) dessa label?
+                    # PREENCHA AQUI: Qual é o VALOR da etiqueta?
                     # -----------------------------------------------------------
-                    # COMO DESCOBRIR:
-                    # No mesmo resultado do comando anterior, o "value" é
-                    # o que está depois dos dois pontos ("distribuida").
-                    values: ["[PREENCHA COM O VALOR DA LABEL]"]
+                    # DICA: É a palavra que vem depois dos dois pontos lá no topo.
+                    values: ["[PREENCHA O VALOR AQUI]"]
+
               # ---------------------------------------------------------------
               # PREENCHA AQUI: Qual é a chave que representa uma "máquina física"?
               # ---------------------------------------------------------------
-              # COMO DESCOBRIR:
-              # 1. Pesquise na documentação do Kubernetes sobre "topologyKey".
-              # 2. Ou rode este comando para ler a explicação do próprio K8s:
-              #
-              #   sudo k3s kubectl explain pod.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution.topologyKey
-              #
-              # O texto dirá que esta chave define o "domínio de topologia".
-              # A label padrão para identificar uma máquina física (Nó) é:
-              #   kubernetes.io/hostname
-              topologyKey: [PREENCHA COM A CHAVE DE TOPOLOGIA]
+              # SUGESTÃO: O Kubernetes não sabe o que é uma "máquina" ou um "servidor".
+              # Ele usa o conceito de "Topologia". Para dizer "não quero na mesma máquina",
+              # usamos a chave padrão que representa o hostname do nó.
+              # PESQUISE NO GOOGLE: "kubernetes topologyKey hostname"
+              # O valor vai ser algo terminado em "hostname".
+              topologyKey: [PREENCHA A CHAVE DE TOPOLOGIA AQUI]
+
       containers:
         - name: web
           # PREENCHA AQUI: Use a imagem que mostra o nome do Pod.
-          # DICA: Pesquise por "nginxdemos/hello" no Docker Hub (hub.docker.com).
-          # A versão que queremos é a "plain-text", que retorna texto simples.
+          # SUGESTÃO: Vá no site hub.docker.com e pesquise por "nginxdemos/hello".
+          # Escolha a versão que tem a tag "plain-text".
+          # Ela é a única que devolve texto simples para o nosso comando "curl".
           image:
           ports:
             - containerPort: 80
@@ -80,5 +70,8 @@ spec:
   ports:
     - port: 80
       targetPort: 80
-      # PREENCHA AQUI: Fixe a porta externa em 30080 para todos acessarem igual
+      # PREENCHA AQUI: Qual porta externa vamos usar?
+      # SUGESTÃO: As portas NodePort permitidas pelo Kubernetes vão de 30000 a 32767.
+      # Escolha uma porta "redonda" e fácil de lembrar para todos acessarem igual
+      # (ex: 30000, 30080, 31000).
       nodePort:
